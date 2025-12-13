@@ -1,12 +1,16 @@
 using ConsultantsSalary.Domain.Entities;
+using ConsultantsSalary.Infrastructure.Auth;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace ConsultantsSalary.Infrastructure;
 
-public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
+public class AppDbContext : IdentityDbContext<ApplicationUser>
 {
+    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) {}
+
     public DbSet<Consultant> Consultants => Set<Consultant>();
-    public DbSet<Role> Roles => Set<Role>();
+    public DbSet<Role> ConsultantRoles => Set<Role>();
     public DbSet<RoleRateHistory> RoleRateHistories => Set<RoleRateHistory>();
     public DbSet<Domain.Entities.Task> Tasks => Set<Domain.Entities.Task>();
     public DbSet<ConsultantTaskAssignment> ConsultantTaskAssignments => Set<ConsultantTaskAssignment>();

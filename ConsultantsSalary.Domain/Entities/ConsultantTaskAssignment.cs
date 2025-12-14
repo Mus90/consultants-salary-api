@@ -2,6 +2,7 @@ namespace ConsultantsSalary.Domain.Entities;
 
 public class ConsultantTaskAssignment
 {
+    public Guid Id { get; set; }
     public Guid ConsultantId { get; set; }
     public Consultant Consultant { get; set; } = null!;
 

@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ConsultantsSalary.Domain\ConsultantsSalary.Domain.csproj" />
+    <ProjectReference Include="..\ConsultantsSalary.Application\ConsultantsSalary.Application.csproj" />
   </ItemGroup>
 
 </Project>

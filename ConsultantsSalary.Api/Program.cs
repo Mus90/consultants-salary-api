@@ -5,18 +5,61 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using ConsultantsSalary.Application.Interfaces;
+using ConsultantsSalary.Infrastructure.Services;
+using ConsultantsSalary.Infrastructure.Repositories;
+using Microsoft.OpenApi.Models;
+using MediatR;
+using Mapster;
+using ConsultantsSalary.Application.Mapping;
+using ConsultantsSalary.Application;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-
 builder.Services.AddControllers();
-builder.Services.AddOpenApi();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Consultants Salary API", Version = "v1" });
+
+    var jwtScheme = new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Enter 'Bearer {your JWT}'",
+        Reference = new OpenApiReference
+        {
+            Type = ReferenceType.SecurityScheme,
+            Id = "Bearer"
+        }
+    };
+
+    c.AddSecurityDefinition("Bearer", jwtScheme);
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        { jwtScheme, Array.Empty<string>() }
+    });
+});
 
 // EF Core - SQL Server
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(connectionString));
+
+// Application services
+builder.Services.AddScoped<IRateHistoryService, RateHistoryService>();
+builder.Services.AddScoped<ITimeEntryService, TimeEntryService>();
+builder.Services.AddScoped<IConsultantRepository, ConsultantRepository>();
+builder.Services.AddScoped<ITaskRepository, TaskRepository>();
+builder.Services.AddScoped<IRoleRepository, RoleRepository>();
+builder.Services.AddScoped<ITimeEntryRepository, TimeEntryRepository>();
+
+// MediatR & Mapster
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<AssemblyMarker>());
+builder.Services.AddSingleton(TypeAdapterConfig.GlobalSettings);
 
 // Identity Core
 builder.Services
@@ -60,16 +103,23 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
+// Configure Mapster mappings
+ConsultantMappingConfig.Configure();
+
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.MapOpenApi();
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Consultants Salary API v1");
+});
 
 app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Global exception handling (ProblemDetails)
+app.UseMiddleware<ConsultantsSalary.Api.Shared.ExceptionHandlingMiddleware>();
 
 app.MapControllers();
 
@@ -79,6 +129,7 @@ using (var scope = app.Services.CreateScope())
     var services = scope.ServiceProvider;
     var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
     var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+    var db = services.GetRequiredService<AppDbContext>();
 
     const string managerRole = "Manager";
     if (!await roleManager.RoleExistsAsync(managerRole))
@@ -101,6 +152,22 @@ using (var scope = app.Services.CreateScope())
         {
             await userManager.AddToRoleAsync(user, managerRole);
         }
+    }
+
+    // Seed baseline domain roles and initial rate history if empty
+    if (!db.ConsultantRoles.Any())
+    {
+        var level1 = new ConsultantsSalary.Domain.Entities.Role { Id = Guid.NewGuid(), Name = "Consultant Level 1" };
+        var level2 = new ConsultantsSalary.Domain.Entities.Role { Id = Guid.NewGuid(), Name = "Consultant Level 2" };
+        db.ConsultantRoles.AddRange(level1, level2);
+
+        var now = DateTime.UtcNow;
+        db.RoleRateHistories.AddRange(
+            new ConsultantsSalary.Domain.Entities.RoleRateHistory { Id = Guid.NewGuid(), RoleId = level1.Id, RatePerHour = 100, EffectiveDate = now },
+            new ConsultantsSalary.Domain.Entities.RoleRateHistory { Id = Guid.NewGuid(), RoleId = level2.Id, RatePerHour = 150, EffectiveDate = now }
+        );
+
+        await db.SaveChangesAsync();
     }
 }
 

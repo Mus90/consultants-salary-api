@@ -1,18 +1,18 @@
+using ConsultantsSalary.Application;
+using ConsultantsSalary.Application.Interfaces;
+using ConsultantsSalary.Application.Mapping;
 using ConsultantsSalary.Infrastructure;
 using ConsultantsSalary.Infrastructure.Auth;
-using Microsoft.EntityFrameworkCore;
+using ConsultantsSalary.Infrastructure.Data;
+using ConsultantsSalary.Infrastructure.Repositories;
+using ConsultantsSalary.Infrastructure.Services;
+using Mapster;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using System.Text;
-using ConsultantsSalary.Application.Interfaces;
-using ConsultantsSalary.Infrastructure.Services;
-using ConsultantsSalary.Infrastructure.Repositories;
 using Microsoft.OpenApi.Models;
-using MediatR;
-using Mapster;
-using ConsultantsSalary.Application.Mapping;
-using ConsultantsSalary.Application;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,7 +29,7 @@ builder.Services.AddSwaggerGen(c =>
         Scheme = "bearer",
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Description = "Enter 'Bearer {your JWT}'",
+        Description = "Enter your Token without'Bearer'",
         Reference = new OpenApiReference
         {
             Type = ReferenceType.SecurityScheme,
@@ -56,6 +56,7 @@ builder.Services.AddScoped<IConsultantRepository, ConsultantRepository>();
 builder.Services.AddScoped<ITaskRepository, TaskRepository>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 builder.Services.AddScoped<ITimeEntryRepository, TimeEntryRepository>();
+builder.Services.AddScoped<IRoleRateHistoryRepository, RoleRateHistoryRepository>();
 
 // MediatR & Mapster
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<AssemblyMarker>());
@@ -105,6 +106,7 @@ var app = builder.Build();
 
 // Configure Mapster mappings
 ConsultantMappingConfig.Configure();
+RoleRateHistoryMappingConfig.Configure();
 
 // Configure the HTTP request pipeline.
 app.UseSwagger();
@@ -123,7 +125,7 @@ app.UseMiddleware<ConsultantsSalary.Api.Shared.ExceptionHandlingMiddleware>();
 
 app.MapControllers();
 
-// Seed Manager role and user
+// Comprehensive data seeding - runs only once when data doesn't exist
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -131,44 +133,7 @@ using (var scope = app.Services.CreateScope())
     var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
     var db = services.GetRequiredService<AppDbContext>();
 
-    const string managerRole = "Manager";
-    if (!await roleManager.RoleExistsAsync(managerRole))
-    {
-        await roleManager.CreateAsync(new IdentityRole(managerRole));
-    }
-
-    var managerEmail = "manager@local";
-    var existing = await userManager.FindByEmailAsync(managerEmail);
-    if (existing is null)
-    {
-        var user = new ApplicationUser
-        {
-            UserName = managerEmail,
-            Email = managerEmail,
-            EmailConfirmed = true
-        };
-        var create = await userManager.CreateAsync(user, "Pass123$!");
-        if (create.Succeeded)
-        {
-            await userManager.AddToRoleAsync(user, managerRole);
-        }
-    }
-
-    // Seed baseline domain roles and initial rate history if empty
-    if (!db.ConsultantRoles.Any())
-    {
-        var level1 = new ConsultantsSalary.Domain.Entities.Role { Id = Guid.NewGuid(), Name = "Consultant Level 1" };
-        var level2 = new ConsultantsSalary.Domain.Entities.Role { Id = Guid.NewGuid(), Name = "Consultant Level 2" };
-        db.ConsultantRoles.AddRange(level1, level2);
-
-        var now = DateTime.UtcNow;
-        db.RoleRateHistories.AddRange(
-            new ConsultantsSalary.Domain.Entities.RoleRateHistory { Id = Guid.NewGuid(), RoleId = level1.Id, RatePerHour = 100, EffectiveDate = now },
-            new ConsultantsSalary.Domain.Entities.RoleRateHistory { Id = Guid.NewGuid(), RoleId = level2.Id, RatePerHour = 150, EffectiveDate = now }
-        );
-
-        await db.SaveChangesAsync();
-    }
+    await DataSeeder.SeedAllDataAsync(roleManager, userManager, db);
 }
 
 app.Run();

@@ -49,6 +49,20 @@ public class TimeEntriesController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("consultant/{consultantId:guid}/total")]
+    public async Task<ActionResult<ConsultantTotalDto>> GetConsultantTotal(
+        Guid consultantId, 
+        [FromQuery] DateTime startDate, 
+        [FromQuery] DateTime endDate, 
+        CancellationToken ct)
+    {
+        if (startDate > endDate)
+            return BadRequest(new { error = "Start date cannot be after end date" });
+
+        var result = await _mediator.Send(new GetConsultantTotalQuery(consultantId, startDate, endDate), ct);
+        return Ok(result);
+    }
+
     [HttpPost]
     public async Task<ActionResult<TimeEntryDto>> Create([FromBody] CreateTimeEntryDto request, CancellationToken ct)
     {

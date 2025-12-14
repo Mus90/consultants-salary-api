@@ -30,7 +30,6 @@ public class TimeEntryService : ITimeEntryService
         if (!assigned)
             throw new InvalidOperationException("Consultant is not assigned to the specified task.");
 
-        // Validate 12h/day limit across tasks
         var existingTotal = await _db.TimeEntries
             .Where(te => te.ConsultantId == consultantId && te.DateWorked == dateWorked)
             .SumAsync(te => (decimal?)te.HoursWorked, ct) ?? 0m;
@@ -55,5 +54,12 @@ public class TimeEntryService : ITimeEntryService
         _db.TimeEntries.Add(entity);
         await _db.SaveChangesAsync(ct);
         return entity;
+    }
+
+    public async Task<Consultant?> GetConsultantAsync(Guid consultantId, CancellationToken ct = default)
+    {
+        return await _db.Consultants
+            .Include(c => c.Role)
+            .FirstOrDefaultAsync(c => c.Id == consultantId, ct);
     }
 }

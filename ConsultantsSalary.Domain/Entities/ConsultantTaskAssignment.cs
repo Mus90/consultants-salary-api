@@ -8,4 +8,6 @@ public class ConsultantTaskAssignment
 
     public Guid TaskId { get; set; }
     public Task Task { get; set; } = null!;
+
+    public DateTime AssignedDate { get; set; } = DateTime.UtcNow;
 }

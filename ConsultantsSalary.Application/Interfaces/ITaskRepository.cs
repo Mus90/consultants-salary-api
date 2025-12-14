@@ -1,5 +1,4 @@
 using ConsultantsSalary.Application.Dtos;
-using ConsultantsSalary.Domain.Entities;
 using Task = System.Threading.Tasks.Task;
 
 namespace ConsultantsSalary.Application.Interfaces;
@@ -14,5 +13,6 @@ public interface ITaskRepository
     Task<bool> TaskExistsAsync(Guid id, CancellationToken ct);
     Task<bool> ConsultantExistsAsync(Guid consultantId, CancellationToken ct);
     Task AssignConsultantAsync(Guid taskId, Guid consultantId, CancellationToken ct);
+    Task AssignMultipleConsultantsAsync(Guid taskId, List<Guid> consultantIds, CancellationToken ct);
     Task UnassignConsultantAsync(Guid taskId, Guid consultantId, CancellationToken ct);
 }

@@ -9,15 +9,29 @@ public class CreateTimeEntryHandler : IRequestHandler<CreateTimeEntryCommand, Ti
 {
     private readonly ITimeEntryRepository _repository;
     private readonly ITimeEntryService _timeEntryService;
+    private readonly IRoleRateHistoryRepository _roleRateHistoryRepository;
 
-    public CreateTimeEntryHandler(ITimeEntryRepository repository, ITimeEntryService timeEntryService)
+    public CreateTimeEntryHandler(
+        ITimeEntryRepository repository,
+        ITimeEntryService timeEntryService,
+        IRoleRateHistoryRepository roleRateHistoryRepository)
     {
         _repository = repository;
         _timeEntryService = timeEntryService;
+        _roleRateHistoryRepository = roleRateHistoryRepository;
     }
 
     public async Task<TimeEntryDto> Handle(CreateTimeEntryCommand request, CancellationToken cancellationToken)
     {
+        var consultant = await _timeEntryService.GetConsultantAsync(request.TimeEntry.ConsultantId, cancellationToken);
+        if (consultant == null)
+            throw new KeyNotFoundException($"Consultant {request.TimeEntry.ConsultantId} not found");
+
+        var currentRate = await _roleRateHistoryRepository.GetCurrentRateForRoleAsync(consultant.RoleId, cancellationToken);
+        if (currentRate == null)
+            throw new InvalidOperationException("No current rate found for consultant's role");
+
+        // Create the time entry using the service
         var entity = await _timeEntryService.CreateAsync(
             request.TimeEntry.ConsultantId,
             request.TimeEntry.TaskId,
@@ -30,7 +44,8 @@ public class CreateTimeEntryHandler : IRequestHandler<CreateTimeEntryCommand, Ti
             ConsultantId = entity.ConsultantId,
             TaskId = entity.TaskId,
             DateWorked = entity.DateWorked,
-            HoursWorked = entity.HoursWorked
+            HoursWorked = entity.HoursWorked,
+            RateSnapshotId = currentRate.Id
         };
 
         return await _repository.CreateAsync(dto, cancellationToken);

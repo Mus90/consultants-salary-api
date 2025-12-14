@@ -2,7 +2,6 @@ using ConsultantsSalary.Application.Dtos;
 using ConsultantsSalary.Application.Features.Tasks.Commands;
 using ConsultantsSalary.Application.Interfaces;
 using MediatR;
-using Task = System.Threading.Tasks.Task;
 
 namespace ConsultantsSalary.Application.Features.Tasks.Handlers;
 
@@ -54,11 +53,11 @@ public class DeleteTaskHandler : IRequestHandler<DeleteTaskCommand, bool>
     }
 }
 
-public class AssignConsultantToTaskHandler : IRequestHandler<AssignConsultantToTaskCommand, Unit>
+public class AssignMultipleConsultantsToTaskHandler : IRequestHandler<AssignConsultantToTaskCommand, Unit>
 {
     private readonly ITaskRepository _repository;
 
-    public AssignConsultantToTaskHandler(ITaskRepository repository)
+    public AssignMultipleConsultantsToTaskHandler(ITaskRepository repository)
     {
         _repository = repository;
     }
@@ -68,29 +67,13 @@ public class AssignConsultantToTaskHandler : IRequestHandler<AssignConsultantToT
         if (!await _repository.TaskExistsAsync(request.TaskId, cancellationToken))
             throw new InvalidOperationException("Task not found");
 
-        if (!await _repository.ConsultantExistsAsync(request.ConsultantId, cancellationToken))
-            throw new InvalidOperationException("Consultant not found");
+        foreach (var consultantId in request.ConsultantIds)
+        {
+            if (!await _repository.ConsultantExistsAsync(consultantId, cancellationToken))
+                throw new InvalidOperationException($"Consultant {consultantId} not found");
+        }
 
-        await _repository.AssignConsultantAsync(request.TaskId, request.ConsultantId, cancellationToken);
-        return Unit.Value;
-    }
-}
-
-public class UnassignConsultantFromTaskHandler : IRequestHandler<UnassignConsultantFromTaskCommand, Unit>
-{
-    private readonly ITaskRepository _repository;
-
-    public UnassignConsultantFromTaskHandler(ITaskRepository repository)
-    {
-        _repository = repository;
-    }
-
-    public async Task<Unit> Handle(UnassignConsultantFromTaskCommand request, CancellationToken cancellationToken)
-    {
-        if (!await _repository.TaskExistsAsync(request.TaskId, cancellationToken))
-            throw new InvalidOperationException("Task not found");
-
-        await _repository.UnassignConsultantAsync(request.TaskId, request.ConsultantId, cancellationToken);
+        await _repository.AssignMultipleConsultantsAsync(request.TaskId, request.ConsultantIds, cancellationToken);
         return Unit.Value;
     }
 }

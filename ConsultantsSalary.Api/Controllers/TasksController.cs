@@ -1,6 +1,7 @@
 using ConsultantsSalary.Application.Dtos;
 using ConsultantsSalary.Application.Features.Tasks.Commands;
 using ConsultantsSalary.Application.Features.Tasks.Queries;
+using ConsultantsSalary.Application.Features.TimeEntries.Queries;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -68,7 +69,18 @@ public class TasksController : ControllerBase
         return NoContent();
     }
 
-    public record AssignRequest(Guid ConsultantId);
+    [HttpGet("{taskId:guid}/consultant/{consultantId:guid}/hours")]
+    [Authorize]
+    public async Task<ActionResult<TaskHoursDto>> GetTaskHours(
+        Guid taskId, 
+        Guid consultantId, 
+        CancellationToken ct)
+    {
+        var result = await _mediator.Send(new GetTaskHoursQuery(taskId, consultantId), ct);
+        return Ok(result);
+    }
+
+    public record AssignRequest(List<Guid> ConsultantIds, DateTime AssignedDate);
 
     [HttpPost("{taskId:guid}/assign")]
     [Authorize(Roles = "Manager")]
@@ -76,22 +88,7 @@ public class TasksController : ControllerBase
     {
         try
         {
-            await _mediator.Send(new AssignConsultantToTaskCommand(taskId, request.ConsultantId), ct);
-            return NoContent();
-        }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
-        {
-            return NotFound(new { error = ex.Message });
-        }
-    }
-
-    [HttpPost("{taskId:guid}/unassign")]
-    [Authorize(Roles = "Manager")]
-    public async Task<IActionResult> Unassign([FromRoute] Guid taskId, [FromBody] AssignRequest request, CancellationToken ct)
-    {
-        try
-        {
-            await _mediator.Send(new UnassignConsultantFromTaskCommand(taskId, request.ConsultantId), ct);
+            await _mediator.Send(new AssignConsultantToTaskCommand(taskId, request.ConsultantIds, request.AssignedDate), ct);
             return NoContent();
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))

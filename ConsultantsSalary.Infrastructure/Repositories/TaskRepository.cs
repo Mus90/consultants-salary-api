@@ -82,10 +82,19 @@ public class TaskRepository : ITaskRepository
             Id = Guid.NewGuid(),
             ConsultantId = consultantId,
             TaskId = taskId,
+            AssignedDate = DateTime.Now
         };
 
         _db.ConsultantTaskAssignments.Add(assignment);
         await _db.SaveChangesAsync(ct);
+    }
+
+    public async Task AssignMultipleConsultantsAsync(Guid taskId, List<Guid> consultantIds, CancellationToken ct)
+    {
+        foreach (var consultantId in consultantIds)
+        {
+            await AssignConsultantAsync(taskId, consultantId, ct);
+        }
     }
 
     public async Task UnassignConsultantAsync(Guid taskId, Guid consultantId, CancellationToken ct)

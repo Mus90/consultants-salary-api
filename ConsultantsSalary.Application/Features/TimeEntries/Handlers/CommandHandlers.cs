@@ -31,7 +31,6 @@ public class CreateTimeEntryHandler : IRequestHandler<CreateTimeEntryCommand, Ti
         if (currentRate == null)
             throw new InvalidOperationException("No current rate found for consultant's role");
 
-        // Create the time entry using the service
         var entity = await _timeEntryService.CreateAsync(
             request.TimeEntry.ConsultantId,
             request.TimeEntry.TaskId,
@@ -39,16 +38,8 @@ public class CreateTimeEntryHandler : IRequestHandler<CreateTimeEntryCommand, Ti
             request.TimeEntry.HoursWorked,
             cancellationToken);
 
-        var dto = new CreateTimeEntryDto
-        {
-            ConsultantId = entity.ConsultantId,
-            TaskId = entity.TaskId,
-            DateWorked = entity.DateWorked,
-            HoursWorked = entity.HoursWorked,
-            RateSnapshotId = currentRate.Id
-        };
-
-        return await _repository.CreateAsync(dto, cancellationToken);
+        return await _repository.GetByIdAsync(entity.Id, cancellationToken) 
+            ?? throw new InvalidOperationException("Failed to retrieve created time entry");
     }
 }
 

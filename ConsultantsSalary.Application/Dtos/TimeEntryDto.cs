@@ -15,7 +15,6 @@ public class TimeEntryDto
 
 public class CreateTimeEntryDto
 {
-    public Guid RateSnapshotId { get; set; }
     public Guid ConsultantId { get; set; }
     public Guid TaskId { get; set; }
     public DateTime DateWorked { get; set; }

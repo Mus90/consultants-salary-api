@@ -1,5 +1,6 @@
 using ConsultantsSalary.Application.Interfaces;
 using ConsultantsSalary.Domain.Entities;
+using Mapster;
 using Microsoft.EntityFrameworkCore;
 
 namespace ConsultantsSalary.Infrastructure.Services;
@@ -47,13 +48,15 @@ public class RateHistoryService : IRateHistoryService
         return newEntry;
     }
 
-    public async Task<RoleRateHistory?> GetRateForDateAsync(Guid roleId, DateTime dateWorked, CancellationToken ct = default)
+    public async Task<RoleRateHistory?> GetCurrentRateAsync(Guid roleId, CancellationToken ct = default)
     {
-        var dateStart = dateWorked;
-        return await _db.RoleRateHistories
-            .Where(h => h.RoleId == roleId && h.EffectiveDate <= dateStart && (h.EndDate == null || h.EndDate > dateStart))
-            .OrderByDescending(h => h.EffectiveDate)
+        var currentRate = await _db.RoleRateHistories
+            .Include(rh => rh.Role)
+            .Where(rh => rh.RoleId == roleId && rh.EndDate == null)
+            .OrderByDescending(rh => rh.EffectiveDate)
             .FirstOrDefaultAsync(ct);
+
+        return currentRate;
     }
 
     public async System.Threading.Tasks.Task SetNewRoleRateAsync(Guid roleId, decimal ratePerHour, CancellationToken cancellationToken)

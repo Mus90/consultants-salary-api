@@ -107,6 +107,7 @@ var app = builder.Build();
 // Configure Mapster mappings
 ConsultantMappingConfig.Configure();
 RoleRateHistoryMappingConfig.Configure();
+TimeEntryMappingConfig.Configure();
 
 // Configure the HTTP request pipeline.
 app.UseSwagger();

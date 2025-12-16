@@ -38,7 +38,7 @@ public class TimeEntryService : ITimeEntryService
         if (attempted > 12m)
             throw new DailyLimitExceededException(consultantId, dateWorked, attempted);
 
-        var snapshot = await _rateHistory.GetRateForDateAsync(consultant.RoleId, dateWorked, ct)
+        var snapshot = await _rateHistory.GetCurrentRateAsync(consultant.RoleId, ct)
             ?? throw new InvalidOperationException("No rate found for consultant's role on the specified date.");
 
         var entity = new TimeEntry
